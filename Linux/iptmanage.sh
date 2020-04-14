@@ -1,6 +1,6 @@
 #!/bin/bash
 
-addTablesMenu()
+addTablesMenu ()
 {
   local CANCEL=false
   local MENUSELECTED
@@ -33,7 +33,7 @@ addTablesMenu()
   done
 }
 
-removeTablesMenu()
+removeTablesMenu ()
 {
   local CANCEL=false
   local MENUSELECTED
@@ -66,7 +66,7 @@ removeTablesMenu()
   done
 }
 
-clearTablesMenu()
+clearTablesMenu ()
 {
   local CANCEL=false
   local MENUSELECTED
@@ -134,7 +134,7 @@ clearTablesMenu()
   done
 }
 
-showTablesMenu()
+showTablesMenu ()
 {
   local CANCEL=false
   local MENUSELECTED
@@ -159,7 +159,7 @@ showTablesMenu()
       echo ""
       case $MENUSELECTED in
         1 )
-          sudo iptables -t filter -L -v
+          sudo iptables -t filter -L -v --line-numbers
           break
           ;;
         2 )
@@ -167,7 +167,7 @@ showTablesMenu()
           break
           ;;
         3 )
-          sudo iptables -t nat -L -v
+          sudo iptables -t nat -L -v --line-numbers
           break
           ;;
         4 )
@@ -175,7 +175,7 @@ showTablesMenu()
           break
           ;;
         5 )
-          sudo iptables -t mangle -L -v
+          sudo iptables -t mangle -L -v --line-numbers
           break
           ;;
         6 )
@@ -183,7 +183,7 @@ showTablesMenu()
           break
           ;;
         7 )
-          sudo iptables -t raw -L -v
+          sudo iptables -t raw -L -v --line-numbers
           break
           ;;
         8 )
@@ -202,6 +202,16 @@ showTablesMenu()
   done
 }
 
+basicHomeFirewall ()
+{
+  echo "DONE"
+}
+
+basicPublicFirewall ()
+{
+  echo "DONE"
+}
+
 showMenu ()
 {
   local CLOSE=false
@@ -214,6 +224,9 @@ showMenu ()
     echo "3) Add to specified table"
     echo "4) Remove from specified table"
     echo "5) Clear specified table"
+    echo ""
+    echo "6) Basic home network firewall"
+    echo "7) Basic public network firewall"
     echo ""
     echo "0) Close program"
     
@@ -243,6 +256,14 @@ showMenu ()
           clearTablesMenu
           break
           ;;
+        6 )
+          basicHomeFirewall
+          break
+          ;;
+        7 )
+          basicPublicFirewall
+          break
+          ;;
         0 )
           CLOSE=true
           break
@@ -256,5 +277,4 @@ showMenu ()
 }
 
 showMenu
-
 exit 0

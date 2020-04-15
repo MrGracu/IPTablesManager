@@ -202,13 +202,33 @@ showTablesMenu ()
   done
 }
 
+basicForAll ()
+{
+  sudo iptables -A INPUT -i lo -j ACCEPT
+  sudo iptables -A OUTPUT -o lo -j ACCEPT
+
+  sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+  # sudo iptables -A INPUT -m 
+}
+
 basicHomeFirewall ()
 {
+  basicForAll
+
   echo "DONE"
 }
 
 basicPublicFirewall ()
 {
+  sudo iptables -P INPUT DROP
+  # sudo iptables -P OUTPUT DROP
+
+  basicForAll
+
+  # sudo iptables -A 
+
+  sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
   echo "DONE"
 }
 

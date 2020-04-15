@@ -6,14 +6,25 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "#!/bin/bash" > "$CONFIG_FILE"
 fi
 
-addTablesMenu ()
+COMMAND=""
+
+addCommandToTableMenu ()
 {
   local CANCEL=false
   local MENUSELECTED
   while [[ "$CANCEL" == false ]]
   do
-    echo "============ ADD TO TABLE ============"
-    echo "1) Add to FILTER table"
+    COMMAND="$1" "$2"
+    echo "============= TABLE $1 ============="
+    echo "Current prepared command:"
+    echo "$COMMAND"
+    echo "1) Append"
+    echo "2) Delete by rule specification"
+    echo "3) Delete by position"
+    echo "4) Insert to specified position"
+    echo "5) Flush"
+    echo "6) Zero"
+    echo "7) Policy"
     echo ""
     echo "0) Go back"
     
@@ -39,14 +50,22 @@ addTablesMenu ()
   done
 }
 
-removeTablesMenu ()
+selectChain ()
 {
   local CANCEL=false
   local MENUSELECTED
   while [[ "$CANCEL" == false ]]
   do
-    echo "========== REMOVE FROM TABLE ========="
-    echo "1) Remove from FILTER table"
+    COMMAND="iptables -t $1"
+    echo "========== TABLE $1 CHAIN =========="
+    echo "Current prepared command:"
+    echo "$COMMAND"
+    echo "Select chain:"
+    echo "1) OUTPUT"
+    echo "2) INPUT"
+    echo "3) FORWARD"
+    echo "4) PREROUTING"
+    echo "5) POSTROUTING"
     echo ""
     echo "0) Go back"
     
@@ -57,7 +76,23 @@ removeTablesMenu ()
       echo ""
       case $MENUSELECTED in
         1 )
-          
+          addCommandToTableMenu "$COMMAND" "OUTPUT"
+          break
+          ;;
+        2 )
+          addCommandToTableMenu "$COMMAND" "INPUT"
+          break
+          ;;
+        3 )
+          addCommandToTableMenu "$COMMAND" "FORWARD"
+          break
+          ;;
+        4 )
+          addCommandToTableMenu "$COMMAND" "PREROUTING"
+          break
+          ;;
+        5 )
+          addCommandToTableMenu "$COMMAND" "POSTROUTING"
           break
           ;;
         0 )
@@ -70,6 +105,92 @@ removeTablesMenu ()
       esac
     done
   done
+}
+
+addTablesMenu ()
+{
+  local CANCEL=false
+  local MENUSELECTED
+  while [[ "$CANCEL" == false ]]
+  do
+    echo "============= ADD TO TABLE ============="
+    echo "1) Add command to FILTER table"
+    echo "2) Add command to NAT table"
+    echo "3) Add command to MANGLE table"
+    echo "4) Add command to RAW table"
+    echo ""
+    echo "0) Go back"
+    
+    while true
+    do
+      read -n 1 -p "Your choice: " MENUSELECTED
+      echo ""
+      echo ""
+      case $MENUSELECTED in
+        1 )
+          selectChain "filter"
+          break
+          ;;
+        2 )
+          selectChain "nat"
+          break
+          ;;
+        3 )
+          selectChain "mangle"
+          break
+          ;;
+        4 )
+          selectChain "raw"
+          break
+          ;;
+        0 )
+          CANCEL=true
+          break
+          ;;
+        * )
+          echo "Bad option, try again"
+          ;;
+      esac
+    done
+  done
+}
+
+basicForAll ()
+{
+echo "
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# sudo iptables -A INPUT -m 
+" >> "$CONFIG_FILE"
+}
+
+basicHomeFirewall ()
+{
+basicForAll
+
+echo "
+" >> "$CONFIG_FILE"
+
+echo "DONE"
+}
+
+basicPublicFirewall ()
+{
+basicForAll
+
+echo "
+iptables -P INPUT DROP
+# sudo iptables -P OUTPUT DROP
+
+# sudo iptables -A 
+
+iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+" >> "$CONFIG_FILE"
+
+echo "DONE"
 }
 
 clearTablesMenu ()
@@ -78,7 +199,7 @@ clearTablesMenu ()
   local MENUSELECTED
   while [[ "$CANCEL" == false ]]
   do
-    echo "============= CLEAR TABLE ============"
+    echo "============== CLEAR TABLE ============="
     echo "1) Clear FILTER table"
     echo "2) Clear NAT table"
     echo "3) Clear MANGLE table"
@@ -209,57 +330,99 @@ showTablesMenu ()
   done
 }
 
-basicForAll ()
+showFileWithNumbers ()
 {
-  echo "
-  iptables -A INPUT -i lo -j ACCEPT
-  iptables -A OUTPUT -o lo -j ACCEPT
-
-  iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-
-  # sudo iptables -A INPUT -m 
-  " >> "$CONFIG_FILE"
-}
-
-basicHomeFirewall ()
-{
-  basicForAll
-
-  echo "
-  " >> "$CONFIG_FILE"
-
-  echo "DONE"
-}
-
-basicPublicFirewall ()
-{
-  basicForAll
-
-  echo "
-  iptables -P INPUT DROP
-  # sudo iptables -P OUTPUT DROP
-
-  # sudo iptables -A 
-
-  iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-  " >> "$CONFIG_FILE"
-  
-  echo "DONE"
+  local nr=0
+  while IFS= read -r line
+  do
+    printf "%i. %s\n" $nr "$line"
+    let nr++
+  done < "$CONFIG_FILE"
 }
 
 showFile ()
 {
   echo "============== SHOW FILE ==============="
   echo "Current file content:"
-  cat "$CONFIG_FILE"
+  showFileWithNumbers
   echo ""
+}
+
+removeLineFromFile ()
+{
+  local nr=0
+  local CANCEL=false
+  local MENUSELECTED
+  while [[ "$CANCEL" == false ]]
+  do
+    echo "=========== REMOVE FROM FILE ==========="
+    echo "Current file content:"
+
+    nr=0
+    while IFS= read -r line
+    do
+      printf "%i. %s\n" $nr "$line"
+      let nr++
+    done < "$CONFIG_FILE"
+
+    echo ""
+    echo "You can not delete line number 0!"
+    echo "0) Go back"
+    
+    while true
+    do
+      read -p "Enter number of line or 0: " MENUSELECTED
+      echo ""
+      if [[ "$MENUSELECTED" =~ ^[1-9][0-9]*$ ]]; then
+        if [ "$MENUSELECTED" -ge "$nr" ]; then
+          echo "Entered number of line does not exist!"
+        else
+          let MENUSELECTED++
+          sed -i $MENUSELECTED"d" "$CONFIG_FILE"
+          echo "DONE"
+          break
+        fi
+      else
+        if [[ "$MENUSELECTED" =~ ^0$ ]]; then
+          CANCEL=true
+          break
+        else
+          echo "Bad option, try again"
+        fi
+      fi
+    done
+  done
 }
 
 loadFile ()
 {
+  local SURE
   echo "============== LOAD FILE ==============="
-  echo "Reading from file... ($CONFIG_FILE)"
-  sh "$CONFIG_FILE"
+  echo "You want to load content from file"
+  echo "$CONFIG_FILE"
+  echo "to iptables."
+  read -p "Are you sure? [y/n] " SURE
+  if [[ ! "$SURE" =~ ^y$ ]]; then
+    echo "Operation canceled"
+    return
+  fi
+  echo "Reading from file... ()"
+  sudo sh "$CONFIG_FILE"
+  echo "DONE"
+}
+
+clearFile ()
+{
+  local SURE
+  echo "============== CLEAR FILE =============="
+  echo "You want to clear content of file"
+  echo "$CONFIG_FILE"
+  read -p "Are you sure? [y/n] " SURE
+  if [[ ! "$SURE" =~ ^y$ ]]; then
+    echo "Operation canceled"
+    return
+  fi
+  echo "#!/bin/bash" > "$CONFIG_FILE"
   echo "DONE"
 }
 
@@ -270,14 +433,15 @@ showMenu ()
   while [[ "$CLOSE" == false ]]
   do
     echo "================= MENU ================="
-    echo "1) Show all network interfaces"
-    echo "2) Show specified table contents"
-    echo "3) Add to specified table"
-    echo "4) Remove from specified table"
-    echo "5) Clear specified table"
+    echo "i) Show all network interfaces"
+    echo "1) Show specified table contents"
+    echo "2) Add command to specified table"
+    echo "3) Clear specified table"
     echo ""
-    echo "6) Show current file content"
-    echo "7) Load file to iptables"
+    echo "4) Show current file content"
+    echo "5) Load file to iptables"
+    echo "6) Remove specified line from file"
+    echo "7) Clear file content"
     echo ""
     echo "8) Basic home firewall"
     echo "9) Basic public firewall"
@@ -290,32 +454,36 @@ showMenu ()
       echo ""
       echo ""
       case $MENUSELECTED in
-        1 )
+        i )
           ifconfig -a
           break
           ;;
-        2 )
+        1 )
           showTablesMenu
           break
           ;;
-        3 )
+        2 )
           addTablesMenu
           break
           ;;
-        4 )
-          removeTablesMenu
-          break
-          ;;
-        5 )
+        3 )
           clearTablesMenu
           break
           ;;
-        6 )
+        4 )
           showFile
           break
           ;;
-        7 )
+        5 )
           loadFile
+          break
+          ;;
+        6 )
+          removeLineFromFile
+          break
+          ;;
+        7 )
+          clearFile
           break
           ;;
         8 )

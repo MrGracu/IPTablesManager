@@ -1,5 +1,11 @@
 #!/bin/bash
 
+CONFIG_FILE="$( realpath ~/ )/IPTablesManager-config.txt"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "#!/bin/bash" > "$CONFIG_FILE"
+fi
+
 addTablesMenu ()
 {
   local CANCEL=false
@@ -142,12 +148,13 @@ showTablesMenu ()
   do
     echo "============= SHOW TABLES =============="
     echo "1) Show FILTER as table"
-    echo "2) Show FILTER as specification"
-    echo "3) Show NAT as table"
-    echo "4) Show NAT as specification"
-    echo "5) Show MANGLE as table"
-    echo "6) Show MANGLE as specification"
-    echo "7) Show RAW as table"
+    echo "2) Show NAT as table"
+    echo "3) Show MANGLE as table"
+    echo "4) Show RAW as table"
+    echo ""
+    echo "5) Show FILTER as specification"
+    echo "6) Show NAT as specification"
+    echo "7) Show MANGLE as specification"
     echo "8) Show RAW as specification"
     echo ""
     echo "0) Go back"
@@ -163,27 +170,27 @@ showTablesMenu ()
           break
           ;;
         2 )
-          sudo iptables -t filter -S
-          break
-          ;;
-        3 )
           sudo iptables -t nat -L -v --line-numbers
           break
           ;;
-        4 )
-          sudo iptables -t nat -S
-          break
-          ;;
-        5 )
+        3 )
           sudo iptables -t mangle -L -v --line-numbers
           break
           ;;
+        4 )
+          sudo iptables -t raw -L -v --line-numbers
+          break
+          ;;
+        5 )
+          sudo iptables -t filter -S
+          break
+          ;;
         6 )
-          sudo iptables -t mangle -S
+          sudo iptables -t nat -S
           break
           ;;
         7 )
-          sudo iptables -t raw -L -v --line-numbers
+          sudo iptables -t mangle -S
           break
           ;;
         8 )
@@ -204,31 +211,55 @@ showTablesMenu ()
 
 basicForAll ()
 {
-  sudo iptables -A INPUT -i lo -j ACCEPT
-  sudo iptables -A OUTPUT -o lo -j ACCEPT
+  echo "
+  iptables -A INPUT -i lo -j ACCEPT
+  iptables -A OUTPUT -o lo -j ACCEPT
 
-  sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
   # sudo iptables -A INPUT -m 
+  " >> "$CONFIG_FILE"
 }
 
 basicHomeFirewall ()
 {
   basicForAll
 
+  echo "
+  " >> "$CONFIG_FILE"
+
   echo "DONE"
 }
 
 basicPublicFirewall ()
 {
-  sudo iptables -P INPUT DROP
-  # sudo iptables -P OUTPUT DROP
-
   basicForAll
+
+  echo "
+  iptables -P INPUT DROP
+  # sudo iptables -P OUTPUT DROP
 
   # sudo iptables -A 
 
-  sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+  iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+  " >> "$CONFIG_FILE"
+  
+  echo "DONE"
+}
+
+showFile ()
+{
+  echo "============== SHOW FILE ==============="
+  echo "Current file content:"
+  cat "$CONFIG_FILE"
+  echo ""
+}
+
+loadFile ()
+{
+  echo "============== LOAD FILE ==============="
+  echo "Reading from file... ($CONFIG_FILE)"
+  sh "$CONFIG_FILE"
   echo "DONE"
 }
 
@@ -245,8 +276,11 @@ showMenu ()
     echo "4) Remove from specified table"
     echo "5) Clear specified table"
     echo ""
-    echo "6) Basic home network firewall"
-    echo "7) Basic public network firewall"
+    echo "6) Show current file content"
+    echo "7) Load file to iptables"
+    echo ""
+    echo "8) Basic home firewall"
+    echo "9) Basic public firewall"
     echo ""
     echo "0) Close program"
     
@@ -277,10 +311,18 @@ showMenu ()
           break
           ;;
         6 )
-          basicHomeFirewall
+          showFile
           break
           ;;
         7 )
+          loadFile
+          break
+          ;;
+        8 )
+          basicHomeFirewall
+          break
+          ;;
+        9 )
           basicPublicFirewall
           break
           ;;

@@ -1,30 +1,64 @@
 #!/bin/bash
 
+# +----------------------------------------------------------------------------------------------------+
+# |  Copyright by Gracjan Mika ( https://gmika.pl ) and Patryk Potoczak ( https://github.com/toczak )  |
+# |                                     IPTablesManage for Linux                                       |
+# +----------------------------------------------------------------------------------------------------+
+
 CONFIG_FILE="$( realpath ~/ )/IPTablesManager-config.txt"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "#!/bin/bash" > "$CONFIG_FILE"
 fi
 
+INSTALLED=false
+dpkg -s iptables-persistent > /dev/null 2>&1 && INSTALLED=true
+
+if [[ "$INSTALLED" == "false" ]]; then
+  echo "To save IPTABLES configuration permanently (do not clear iptables when reboot) we need to install package \"iptables-persistent\"."
+  read -p "Do you want to install this package now? [y/n] " INSTALLED
+  if [[ "$INSTALLED" =~ ^y$ ]]; then
+    sudo apt-get install iptables-persistent && INSTALLED=true || INSTALLED=false
+    if [[ "$INSTALLED" == "false" ]]; then
+      echo "Something went wrong... Package probably is not installed."
+    else
+      echo "Package has been successfully installed!"
+    fi
+  else
+    echo "Package is not installed, operation canceled."
+    INSTALLED=false
+  fi
+fi
+
+
 COMMAND=""
 
-addCommandToTableMenu ()
+selectChain ()
 {
   local CANCEL=false
+  local GOOD=false
+  local CHAINSELECTED="<chain>"
   local MENUSELECTED
   while [[ "$CANCEL" == false ]]
   do
-    COMMAND="$1" "$2"
-    echo "============= TABLE $1 ============="
+    GOOD=false
+
+    if [ "$#" -eq "2" ]; then
+      COMMAND="iptables -t $1 $2"
+    else
+      COMMAND="iptables -t $1 $2 $CHAINSELECTED $3"
+    fi
+    echo "========== TABLE $1 CHAIN =========="
     echo "Current prepared command:"
     echo "$COMMAND"
-    echo "1) Append"
-    echo "2) Delete by rule specification"
-    echo "3) Delete by position"
-    echo "4) Insert to specified position"
-    echo "5) Flush"
-    echo "6) Zero"
-    echo "7) Policy"
+    echo "Select chain:"
+    if [[ "$1" == "raw" || "$1" == "mangle" || "$1" == "filter" || "$1" == "nat" ]]; then echo "1) OUTPUT"; fi
+    if [[ "$1" == "mangle" || "$1" == "filter" ]]; then echo "2) INPUT"; fi
+    if [[ "$1" == "mangle" || "$1" == "filter" ]]; then echo "3) FORWARD"; fi
+    if [[ "$1" == "raw" || "$1" == "mangle" || "$1" == "nat" ]]; then echo "4) PREROUTING"; fi
+    if [[ "$1" == "mangle" || "$1" == "nat" ]]; then echo "5) POSTROUTING"; fi
+    echo ""
+    echo "e) Add current command to file"
     echo ""
     echo "0) Go back"
     
@@ -35,7 +69,54 @@ addCommandToTableMenu ()
       echo ""
       case $MENUSELECTED in
         1 )
-          
+          if [[ "$1" == "raw" || "$1" == "mangle" || "$1" == "filter" || "$1" == "nat" ]]; then 
+            CHAINSELECTED="OUTPUT"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        2 )
+          if [[ "$1" == "mangle" || "$1" == "filter" ]]; then 
+            CHAINSELECTED="INPUT"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        3 )
+          if [[ "$1" == "mangle" || "$1" == "filter" ]]; then 
+            CHAINSELECTED="FORWARD"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        4 )
+          if [[ "$1" == "raw" || "$1" == "mangle" || "$1" == "nat" ]]; then 
+            CHAINSELECTED="PREROUTING"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        5 )
+          if [[ "$1" == "mangle" || "$1" == "nat" ]]; then 
+            CHAINSELECTED="POSTROUTING"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        e )
+          echo "$COMMAND" >> "$CONFIG_FILE"
+          echo "Added to file: $COMMAND"
+          CANCEL=true
           break
           ;;
         0 )
@@ -47,25 +128,50 @@ addCommandToTableMenu ()
           ;;
       esac
     done
+    if [[ "$GOOD" == "true" ]]; then
+      if [ "$#" -eq "3" ]; then
+        COMMAND="iptables -t $1 $2 $CHAINSELECTED $3"
+      else
+        COMMAND="iptables -t $1 $2 $CHAINSELECTED"
+      fi
+
+      if [[ "$2" == "-D" || "$2" == "-Z" || "$2" == "-F" ]]; then
+        local SURE
+        echo "$COMMAND"
+        read -p "Add this command to file? [y/n] " SURE
+        echo ""
+        if [[ "$SURE" =~ ^y$ ]]; then
+          echo "$COMMAND" >> "$CONFIG_FILE"
+          echo "Added to file: $COMMAND"
+        else
+          echo "Operation canceled"
+        fi
+      else
+        echo "PRZEKAŻE: $COMMAND"
+      fi
+      CANCEL=true
+    fi
   done
 }
 
-selectChain ()
+addCommandToTableMenu ()
 {
   local CANCEL=false
   local MENUSELECTED
+  local POSITION
   while [[ "$CANCEL" == false ]]
   do
     COMMAND="iptables -t $1"
-    echo "========== TABLE $1 CHAIN =========="
+    echo "============= TABLE $1 ============="
     echo "Current prepared command:"
     echo "$COMMAND"
-    echo "Select chain:"
-    echo "1) OUTPUT"
-    echo "2) INPUT"
-    echo "3) FORWARD"
-    echo "4) PREROUTING"
-    echo "5) POSTROUTING"
+    echo "1) Append"
+    echo "2) Delete by rule specification" # DONE
+    echo "3) Delete by rule position" # DONE
+    echo "4) Insert to specified position" 
+    echo "5) Flush" # DONE
+    echo "6) Zero" # DONE
+    echo "7) Policy"
     echo ""
     echo "0) Go back"
     
@@ -76,23 +182,46 @@ selectChain ()
       echo ""
       case $MENUSELECTED in
         1 )
-          addCommandToTableMenu "$COMMAND" "OUTPUT"
+          selectChain "$1" "-A"
           break
           ;;
         2 )
-          addCommandToTableMenu "$COMMAND" "INPUT"
-          break
+          read -p "Type content WITHOUT CHAIN which have to be removed: " POSITION
+          if [[ "$POSITION" =~ ^.+[[:space:]].+$ ]]; then
+            selectChain "$1" "-D" "$POSITION"
+            break
+          else
+            echo "Bad command content"
+          fi
           ;;
         3 )
-          addCommandToTableMenu "$COMMAND" "FORWARD"
-          break
+          read -p "Position of rule to delete: " POSITION
+          if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+            selectChain "$1" "-D" "$POSITION"
+            break
+          else
+            echo "Bad position NUMBER"
+          fi
           ;;
         4 )
-          addCommandToTableMenu "$COMMAND" "PREROUTING"
-          break
+          read -p "Position of rule to insert: " POSITION
+          if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+            selectChain "$1" "-I" "$POSITION"
+            break
+          else
+            echo "Bad position NUMBER"
+          fi
           ;;
         5 )
-          addCommandToTableMenu "$COMMAND" "POSTROUTING"
+          selectChain "$1" "-F"
+          break
+          ;;
+        6 )
+          selectChain "$1" "-Z"
+          break
+          ;;
+        7 )
+          selectChain "$1" "-P"
           break
           ;;
         0 )
@@ -128,19 +257,19 @@ addTablesMenu ()
       echo ""
       case $MENUSELECTED in
         1 )
-          selectChain "filter"
+          addCommandToTableMenu "filter"
           break
           ;;
         2 )
-          selectChain "nat"
+          addCommandToTableMenu "nat"
           break
           ;;
         3 )
-          selectChain "mangle"
+          addCommandToTableMenu "mangle"
           break
           ;;
         4 )
-          selectChain "raw"
+          addCommandToTableMenu "raw"
           break
           ;;
         0 )
@@ -155,41 +284,31 @@ addTablesMenu ()
   done
 }
 
-basicForAll ()
+basicFirewall ()
 {
-echo "
-iptables -A INPUT -i lo -j ACCEPT
-iptables -A OUTPUT -o lo -j ACCEPT
-
-iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-
-# sudo iptables -A INPUT -m 
-" >> "$CONFIG_FILE"
-}
-
-basicHomeFirewall ()
-{
-basicForAll
-
-echo "
-" >> "$CONFIG_FILE"
-
-echo "DONE"
-}
-
-basicPublicFirewall ()
-{
-basicForAll
-
 echo "
 iptables -P INPUT DROP
-# sudo iptables -P OUTPUT DROP
 
-# sudo iptables -A 
+iptables -A INPUT -i lo -j ACCEPT
+# iptables -A OUTPUT -o lo -j ACCEPT
 
+iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP  # NULL PACKETS
+iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP   # SYN-FLOOD ATTACK
+iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP   # XMAS PACKETS
+
+iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT   # HTTP
+iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT  # HTTPS
+
+iptables -A INPUT -p tcp -m tcp --dport 587 -j ACCEPT  # SMTP
+iptables -A INPUT -p tcp -m tcp --dport 465 -j ACCEPT  # SMTPS (SSL)
+iptables -A INPUT -p tcp -m tcp --dport 110 -j ACCEPT  # POP3
+iptables -A INPUT -p tcp -m tcp --dport 995 -j ACCEPT  # POP3S (SSL)
+iptables -A INPUT -p tcp -m tcp --dport 143 -j ACCEPT  # IMAP
+iptables -A INPUT -p tcp -m tcp --dport 993 -j ACCEPT  # IMAPS (SSL)
+
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 " >> "$CONFIG_FILE"
-
 echo "DONE"
 }
 
@@ -200,6 +319,11 @@ clearTablesMenu ()
   while [[ "$CANCEL" == false ]]
   do
     echo "============== CLEAR TABLE ============="
+    echo "If you have saved commands permanently then this only clear current loaded iptables but when you restart PC, the permanently settings will be loaded again."
+    echo "If you want to clear the permanently settings, you need to first clear iptables, then save current iptables config permanently."
+    echo ""
+    echo "This option do not clear current chain policies"
+    echo ""
     echo "1) Clear FILTER table"
     echo "2) Clear NAT table"
     echo "3) Clear MANGLE table"
@@ -327,6 +451,7 @@ showTablesMenu ()
           ;;
       esac
     done
+    echo ""
   done
 }
 
@@ -406,7 +531,7 @@ loadFile ()
     echo "Operation canceled"
     return
   fi
-  echo "Reading from file... ()"
+  echo "Reading from file..."
   sudo sh "$CONFIG_FILE"
   echo "DONE"
 }
@@ -442,9 +567,9 @@ showMenu ()
     echo "5) Load file to iptables"
     echo "6) Remove specified line from file"
     echo "7) Clear file content"
+    if [[ "$INSTALLED" == "true" ]]; then echo "8) Save current iptables config permanently"; fi
     echo ""
-    echo "8) Basic home firewall"
-    echo "9) Basic public firewall"
+    echo "9) Basic firewall"
     echo ""
     echo "0) Close program"
     
@@ -487,11 +612,16 @@ showMenu ()
           break
           ;;
         8 )
-          basicHomeFirewall
+          if [[ "$INSTALLED" == "false" ]]; then
+            echo "Bad option, try again"
+          else
+            sudo iptables-save | sudo tee /etc/iptables/rules.v4
+            echo "DONE"
+          fi
           break
           ;;
         9 )
-          basicPublicFirewall
+          basicFirewall
           break
           ;;
         0 )

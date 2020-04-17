@@ -30,8 +30,229 @@ if [[ "$INSTALLED" == "false" ]]; then
   fi
 fi
 
-
 COMMAND=""
+
+setAction ()
+{
+  local CANCEL=false
+  local MENUSELECTED
+  local GOOD
+  while [[ "$CANCEL" == false ]]
+  do
+    GOOD=false
+    COMMAND="$1"
+    echo "============= SET ACTION ============="
+    echo "Current prepared command:"
+    echo -e '\E[32m'"$COMMAND"; tput sgr0
+    echo "1) ACCEPT"
+    if [[ "$2" == "mangle" ]]; then echo "2) CLASSIFY"; fi
+    echo "3) CONNMARK"
+    if [[ "$2" == "nat" ]] && ([[ "$3" == "PREROUTING" || "$3" == "OUTPUT" ]]); then echo "4) DNAT"; fi
+    if [[ "$2" == "filter" ]]; then echo "5) DROP"; fi
+    if [[ "$2" == "mangle" ]]; then echo "6) DSCP"; fi
+    echo "7) LOG"
+    if [[ "$2" == "mangle" ]]; then echo "8) MARK"; fi
+    if [[ "$2" == "nat" ]] && [[ "$3" == "POSTROUTING" ]]; then echo "9) MASQUERADE"; fi
+    if [[ "$2" == "nat" ]]; then echo "10) NETMAP"; fi
+    if [[ "$2" == "raw" ]]; then echo "11) NOTRACK"; fi
+    if [[ "$2" == "nat" ]] && ([[ "$3" == "PREROUTING" || "$3" == "OUTPUT" ]]); then echo "12) REDIRECT"; fi
+    if [[ "$2" == "filter" ]]; then echo "13) REJECT"; fi
+    if [[ "$2" == "nat" ]] && [[ "$3" == "POSTROUTING" ]]; then echo "14) SNAT"; fi
+    if [[ "$2" == "filter" ]] && ([[ "$3" == "INPUT" || "$3" == "FORWARD" ]]); then echo "15) TARPIT"; fi
+    if [[ "$2" == "mangle" ]]; then echo "16) TCPOPTSTRIP"; fi
+    if [[ "$2" == "mangle" ]] && [[ "$3" == "PREROUTING" ]]; then echo "17) TPROXY"; fi
+    if [[ "$2" == "mangle" ]]; then echo "18) TTL"; fi
+    echo ""
+    echo "e) Add current command to file"
+    echo ""
+    echo "0) Go back"
+    
+    while true
+    do
+      read -p "Your choice: " MENUSELECTED
+      echo ""
+      echo ""
+      case $MENUSELECTED in
+        1 )
+          COMMAND="$COMMAND -j ACCEPT"
+          GOOD=true
+          break
+          ;;
+        2 )
+          if [[ "$2" == "mangle" ]]; then 
+            COMMAND="$COMMAND -j CLASSIFY"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        3 )
+          COMMAND="$COMMAND -j CONNMARK"
+          GOOD=true
+          break
+          ;;
+        4 )
+          if [[ "$2" == "nat" ]] && ([[ "$3" == "PREROUTING" || "$3" == "OUTPUT" ]]); then 
+            COMMAND="$COMMAND -j DNAT"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        5 )
+          if [[ "$2" == "filter" ]]; then 
+            COMMAND="$COMMAND -j DROP"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        6 )
+          if [[ "$2" == "mangle" ]]; then 
+            COMMAND="$COMMAND -j DSCP"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        7 )
+          COMMAND="$COMMAND -j LOG"
+          GOOD=true
+          break
+          ;;
+        8 )
+          if [[ "$2" == "mangle" ]]; then 
+            COMMAND="$COMMAND -j MARK"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        9 )
+          if [[ "$2" == "nat" ]]; then 
+            COMMAND="$COMMAND -j MASQUERADE"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        10 )
+          if [[ "$2" == "nat" ]]; then 
+            COMMAND="$COMMAND -j NETMAP"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        11 )
+          if [[ "$2" == "raw" ]]; then 
+            COMMAND="$COMMAND -j NOTRACK"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        12 )
+          if [[ "$2" == "nat" ]] && ([[ "$3" == "PREROUTING" || "$3" == "OUTPUT" ]]); then 
+            COMMAND="$COMMAND -j REDIRECT"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        13 )
+          if [[ "$2" == "filter" ]]; then 
+            COMMAND="$COMMAND -j REJECT"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        14 )
+          if [[ "$2" == "nat" ]] && [[ "$3" == "POSTROUTING" ]]; then 
+            COMMAND="$COMMAND -j SNAT"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        15 )
+          if [[ "$2" == "filter" ]] && ([[ "$3" == "INPUT" || "$3" == "FORWARD" ]]); then 
+            COMMAND="$COMMAND -j TARPIT"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        16 )
+          if [[ "$2" == "mangle" ]]; then 
+            COMMAND="$COMMAND -j TCPOPTSTRIP"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        17 )
+          if [[ "$2" == "mangle" ]] && [[ "$2" == "PREROUTING" ]]; then 
+            COMMAND="$COMMAND -j TPROXY"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        18 )
+          if [[ "$2" == "mangle" ]]; then 
+            COMMAND="$COMMAND -j TTL"
+            GOOD=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+          ;;
+        e )
+          echo "$COMMAND" >> "$CONFIG_FILE"
+          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          CANCEL=true
+          break
+          ;;
+        0 )
+          CANCEL=true
+          break
+          ;;
+        * )
+          echo "Bad option, try again"
+          ;;
+      esac
+    done
+    if [[ "$GOOD" == "true" ]]; then
+      local SURE
+      echo -e '\E[32m'"$COMMAND"; tput sgr0
+      read -p "Add this command to file? [y/n] " SURE
+      echo ""
+      if [[ "$SURE" =~ ^y$ ]]; then
+        echo "$COMMAND" >> "$CONFIG_FILE"
+        printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+      else
+        echo "Operation canceled"
+      fi
+      CANCEL=true
+    fi
+  done
+}
 
 selectChain ()
 {
@@ -50,7 +271,7 @@ selectChain ()
     fi
     echo "========== TABLE $1 CHAIN =========="
     echo "Current prepared command:"
-    echo "$COMMAND"
+    echo -e '\E[32m'"$COMMAND"; tput sgr0
     echo "Select chain:"
     if [[ "$1" == "raw" || "$1" == "mangle" || "$1" == "filter" || "$1" == "nat" ]]; then echo "1) OUTPUT"; fi
     if [[ "$1" == "mangle" || "$1" == "filter" ]]; then echo "2) INPUT"; fi
@@ -115,7 +336,7 @@ selectChain ()
           ;;
         e )
           echo "$COMMAND" >> "$CONFIG_FILE"
-          echo "Added to file: $COMMAND"
+          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
           CANCEL=true
           break
           ;;
@@ -137,19 +358,23 @@ selectChain ()
 
       if [[ "$2" == "-D" || "$2" == "-Z" || "$2" == "-F" ]]; then
         local SURE
-        echo "$COMMAND"
+        echo -e '\E[32m'"$COMMAND"; tput sgr0
         read -p "Add this command to file? [y/n] " SURE
         echo ""
         if [[ "$SURE" =~ ^y$ ]]; then
           echo "$COMMAND" >> "$CONFIG_FILE"
-          echo "Added to file: $COMMAND"
+          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
         else
           echo "Operation canceled"
         fi
+        CANCEL=true
       else
-        echo "PRZEKAŻE: $COMMAND"
+        if [[ "$2" == "-P" ]]; then
+          setAction "$COMMAND" "$1" "CHAINSELECTED"
+        else
+          echo "PRZEKAŻE: $COMMAND" "$1" "$CHAINSELECTED"
+        fi
       fi
-      CANCEL=true
     fi
   done
 }
@@ -164,7 +389,7 @@ addCommandToTableMenu ()
     COMMAND="iptables -t $1"
     echo "============= TABLE $1 ============="
     echo "Current prepared command:"
-    echo "$COMMAND"
+    echo -e '\E[32m'"$COMMAND"; tput sgr0
     echo "1) Append"
     echo "2) Delete by rule specification" # DONE
     echo "3) Delete by rule position" # DONE
@@ -569,7 +794,7 @@ showMenu ()
     echo "7) Clear file content"
     if [[ "$INSTALLED" == "true" ]]; then echo "8) Save current iptables config permanently"; fi
     echo ""
-    echo "9) Basic firewall"
+    echo "9) Add basic firewall to file"
     echo ""
     echo "0) Close program"
     

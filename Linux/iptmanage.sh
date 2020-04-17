@@ -295,6 +295,7 @@ setAction ()
         if [[ "$SURE" =~ ^y$ ]]; then
           echo "$COMMAND" >> "$CONFIG_FILE"
           printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          CANCEL=true
         else
           echo "Operation canceled"
         fi
@@ -302,7 +303,6 @@ setAction ()
         COMMAND="$COMMAND -j $ACTION"
         addParameters "$COMMAND" "$2" "$3" "$4"
       fi
-      CANCEL=true
     fi
   done
 }
@@ -417,10 +417,10 @@ selectChain ()
         if [[ "$SURE" =~ ^y$ ]]; then
           echo "$COMMAND" >> "$CONFIG_FILE"
           printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          CANCEL=true
         else
           echo "Operation canceled"
         fi
-        CANCEL=true
       else
         if [[ "$2" == "-P" ]]; then
           setAction "$COMMAND" "$1" "$2" "CHAINSELECTED"

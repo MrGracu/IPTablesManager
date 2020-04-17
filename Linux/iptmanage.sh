@@ -93,7 +93,7 @@ setAction ()
     echo -e '\E[32m'"$COMMAND"; tput sgr0
     echo "1) ACCEPT"
     if [[ "$2" == "mangle" ]]; then echo "2) CLASSIFY"; fi
-    echo "2) CONNMARK"
+    echo "3) CONNMARK"
     if [[ "$2" == "nat" ]] && ([[ "$4" == "PREROUTING" || "$4" == "OUTPUT" ]]); then echo "4) DNAT"; fi
     if [[ "$2" == "filter" ]]; then echo "5) DROP"; fi
     if [[ "$2" == "mangle" ]]; then echo "6) DSCP"; fi

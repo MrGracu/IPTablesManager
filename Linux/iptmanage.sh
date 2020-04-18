@@ -32,6 +32,41 @@ fi
 
 COMMAND=""
 
+manualCommand ()
+{
+  local CANCEL=false
+  local MENUSELECTED
+  local PARAMATER=""
+  while [[ "$CANCEL" == false ]]
+  do
+    COMMAND="$1"
+    echo "============ MANUAL COMMAND ============"
+    echo "Type manually part of command"
+    echo ""
+    echo "0) Go back"
+    
+    while true
+    do
+      printf 'Write command: \e[0;32m%-6s\e[m ' "$COMMAND"
+      read MENUSELECTED
+      echo ""
+      if [[ "$MENUSELECTED" =~ ^.{2,}$ ]]; then
+        COMMAND="$COMMAND $MENUSELECTED"
+        echo "ADDED"
+        addParameters "$COMMAND" "$2" "$3" "$4"
+        break
+      else
+        if [[ "$MENUSELECTED" =~ ^0$ ]]; then
+          CANCEL=true
+          break
+        else
+          echo "Bad option, try again"
+        fi
+      fi
+    done
+  done
+}
+
 addParameters ()
 {
   local CANCEL=false
@@ -58,6 +93,10 @@ addParameters ()
       case $MENUSELECTED in
         1 )
           setAction "$COMMAND" "$2" "$3" "$4"
+          break
+          ;;
+        m )
+          manualCommand "$COMMAND" "$2" "$3" "$4"
           break
           ;;
         e )
@@ -474,7 +513,7 @@ addCommandToTableMenu ()
           ;;
         3 )
           read -p "Position of rule to delete: " POSITION
-          if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+          if [[ "$POSITION" =~ ^[1-9][0-9]*$ ]]; then
             selectChain "$1" "-D" "$POSITION"
             break
           else
@@ -483,7 +522,7 @@ addCommandToTableMenu ()
           ;;
         4 )
           read -p "Position of rule to insert: " POSITION
-          if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+          if [[ "$POSITION" =~ ^[1-9][0-9]*$ ]]; then
             selectChain "$1" "-I" "$POSITION"
             break
           else
@@ -568,14 +607,14 @@ echo "
 iptables -P INPUT DROP
 
 iptables -A INPUT -i lo -j ACCEPT
-# iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
 
 iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP  # NULL PACKETS
 iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP   # SYN-FLOOD ATTACK
 iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP   # XMAS PACKETS
 
-iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT   # HTTP
-iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT  # HTTPS
+# iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT   # HTTP
+# iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT  # HTTPS
 
 iptables -A INPUT -p tcp -m tcp --dport 587 -j ACCEPT  # SMTP
 iptables -A INPUT -p tcp -m tcp --dport 465 -j ACCEPT  # SMTPS (SSL)

@@ -36,7 +36,6 @@ manualCommand ()
 {
   local CANCEL=false
   local MENUSELECTED
-  local PARAMATER=""
   while [[ "$CANCEL" == false ]]
   do
     COMMAND="$1"
@@ -47,7 +46,7 @@ manualCommand ()
     
     while true
     do
-      printf 'Write command: \e[0;32m%-6s\e[m ' "$COMMAND"
+      printf 'Write command: \e[0;32m%s\e[m ' "$COMMAND"
       read MENUSELECTED
       echo ""
       if [[ "$MENUSELECTED" =~ ^.{2,}$ ]]; then
@@ -67,11 +66,43 @@ manualCommand ()
   done
 }
 
+setParameter ()
+{
+  local CANCEL=false
+  local MENUSELECTED
+  while [[ "$CANCEL" == false ]]
+  do
+    COMMAND="$3"
+    echo "============== $1 ==============" | tr a-z A-Z
+    echo ""
+    echo "0) Go back"
+    
+    while true
+    do
+      printf 'Add %s: \e[0;32m%s\e[m %s ' "$1" "$COMMAND" "$2"
+      read MENUSELECTED
+      echo ""
+      if [[ "$MENUSELECTED" =~ ^.{2,}$ ]]; then
+        COMMAND="$COMMAND $2 $MENUSELECTED"
+        echo "ADDED"
+        addParameters "$COMMAND" "$4" "$5" "$6"
+        break
+      else
+        if [[ "$MENUSELECTED" =~ ^0$ ]]; then
+          CANCEL=true
+          break
+        else
+          echo "Bad option, try again"
+        fi
+      fi
+    done
+  done
+}
+
 addParameters ()
 {
   local CANCEL=false
   local MENUSELECTED
-  local PARAMATER=""
   while [[ "$CANCEL" == false ]]
   do
     COMMAND="$1"
@@ -79,6 +110,12 @@ addParameters ()
     echo "Current prepared command:"
     echo -e '\E[32m'"$COMMAND"; tput sgr0
     echo "1) -j (jump/action)"
+    echo "2) -s (source)"
+    echo "3) -d (destination)"
+    echo "4) -i (in-interface)"
+    echo "5) -o (out-interface)"
+    echo "6) --sport (source-port)"
+    echo "7) --dport (destination-port)"
     echo ""
     echo "m) Add add manually paramater to command"
     echo "e) Add current command to file"
@@ -95,13 +132,37 @@ addParameters ()
           setAction "$COMMAND" "$2" "$3" "$4"
           break
           ;;
+        2 )
+          setParameter "source" "-s" "$COMMAND" "$2" "$3" "$4"
+          break
+          ;;
+        3 )
+          setParameter "destination" "-d" "$COMMAND" "$2" "$3" "$4"
+          break
+          ;;
+        4 )
+          setParameter "in-interface" "-i" "$COMMAND" "$2" "$3" "$4"
+          break
+          ;;
+        5 )
+          setParameter "out-interface" "-o" "$COMMAND" "$2" "$3" "$4"
+          break
+          ;;
+        6 )
+          setParameter "source-port" "--sport" "$COMMAND" "$2" "$3" "$4"
+          break
+          ;;
+        7 )
+          setParameter "destination-port" "--dport" "$COMMAND" "$2" "$3" "$4"
+          break
+          ;;
         m )
           manualCommand "$COMMAND" "$2" "$3" "$4"
           break
           ;;
         e )
           echo "$COMMAND" >> "$CONFIG_FILE"
-          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          printf 'Added to file: \e[0;32m%s\e[m\n' "$COMMAND"
           CANCEL=true
           break
           ;;
@@ -117,11 +178,106 @@ addParameters ()
   done
 }
 
+addToAction ()
+{
+  local CANCEL=false
+  local GOOD=false
+  local MENUSELECTED
+  while [[ "$CANCEL" == false ]]
+  do
+    GOOD=false
+    COMMAND="$1"
+    echo "========= $5 OPTIONS ========="
+    echo "Current prepared command:"
+    echo -e '\E[32m'"$COMMAND"; tput sgr0
+    echo "Select option:"
+    local i=6
+    while [ "$i" -le "$#" ]; do
+      echo "$(($i-5))) ${!i}"
+      let i++
+    done
+    echo ""
+    echo "e) Add current command to file"
+    echo ""
+    echo "0) Go back"
+    
+    while true
+    do
+      read -n 1 -p "Your choice: " MENUSELECTED
+      echo ""
+      if [[ "$MENUSELECTED" =~ ^[1-9][0-9]*$ ]]; then
+        if [ "$MENUSELECTED" -le "$(($#-5))" ] && [ "$MENUSELECTED" -gt "0" ]; then
+          if [[ "$5" == "LOG" && "$MENUSELECTED" == "1" ]]; then
+            echo "Log levels:"
+            echo "emergency (0)"
+            echo "alert (1)"
+            echo "critical (2)"
+            echo "error (3)"
+            echo "warning (4)"
+            echo "notice (5)"
+            echo "info (6)"
+            echo "debug (7)"
+          fi
+          if [[ "$5" == "REJECT" && "$MENUSELECTED" == "1" ]]; then
+            echo "Reject types:"
+            echo "icmp-net-unreachable"
+            echo "icmp-host-unreachable"
+            echo "icmp-port-unreachable"
+            echo "icmp-proto-unreachable"
+            echo "icmp-net-prohibited"
+            echo "icmp-host-prohibited"
+            echo "icmp-admin-prohibited"
+          fi
+          if [[ "$5" == "TCPOPTSTRIP" && "$MENUSELECTED" == "1" ]]; then
+            echo "Options:"
+            echo "mss (2)"
+            echo "wscale (3)"
+            echo "sack-permitted (4)"
+            echo "sack (5)"
+            echo "timestamp (8)"
+            echo "md5 (14)"
+          fi
+          local VALUE
+          let MENUSELECTED+=5
+          echo "If value should be empty just press ENTER"
+          printf 'Add value: \e[0;32m%s\e[m %s ' "$COMMAND" "${!MENUSELECTED}"
+          read VALUE
+          echo ""
+          if [[ "$VALUE" == "" ]]; then
+            COMMAND="$COMMAND ${!MENUSELECTED}"
+          else
+            COMMAND="$COMMAND ${!MENUSELECTED} $VALUE"
+          fi
+          echo "ADDED"
+          addParameters "$COMMAND" "$2" "$3" "$4"
+          break
+        else
+          echo "Bad option, try again"
+        fi
+      else
+        if [[ "$MENUSELECTED" =~ ^0$ ]]; then
+          CANCEL=true
+          break
+        else
+          if [[ "$MENUSELECTED" =~ ^e$ ]]; then
+            echo "$COMMAND" >> "$CONFIG_FILE"
+            printf 'Added to file: \e[0;32m%s\e[m\n' "$COMMAND"
+            CANCEL=true
+            break
+          else
+            echo "Bad option, try again"
+          fi
+        fi
+      fi
+    done
+  done
+}
+
 setAction ()
 {
   local CANCEL=false
   local MENUSELECTED
-  local GOOD
+  local GOOD=false
   local ACTION=""
   while [[ "$CANCEL" == false ]]
   do
@@ -311,7 +467,7 @@ setAction ()
           ;;
         e )
           echo "$COMMAND" >> "$CONFIG_FILE"
-          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          printf 'Added to file: \e[0;32m%s\e[m\n' "$COMMAND"
           CANCEL=true
           break
           ;;
@@ -333,14 +489,74 @@ setAction ()
         echo ""
         if [[ "$SURE" =~ ^y$ ]]; then
           echo "$COMMAND" >> "$CONFIG_FILE"
-          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          printf 'Added to file: \e[0;32m%s\e[m\n' "$COMMAND"
           CANCEL=true
         else
           echo "Operation canceled"
         fi
       else
         COMMAND="$COMMAND -j $ACTION"
-        addParameters "$COMMAND" "$2" "$3" "$4"
+        if [[ "$ACTION" == "CLASSIFY" ]]; then
+          addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--set-class"
+        else
+          if [[ "$ACTION" == "CONNMARK" ]]; then
+            if [[ "$2" == "mangle" ]]; then
+              addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--set-xmark" "--save-mark" "--restore-mark" "--and-mark" "--or-mark" "--set-mark"
+            else
+              addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--set-xmark" "--save-mark" "--and-mark" "--or-mark" "--set-mark"
+            fi
+          else
+            if [[ "$ACTION" == "DNAT" ]]; then
+              addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--to-destination" "--random" "--persistent"
+            else
+              if [[ "$ACTION" == "DSCP" ]]; then
+                addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--set-dscp" "--set-dscp-class"
+              else
+                if [[ "$ACTION" == "LOG" ]]; then
+                  addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--log-level" "--log-prefix" "--log-tcp-sequence" "--log-tcp-options" "--log-ip-options" "--log-uid"
+                else
+                  if [[ "$ACTION" == "MARK" ]]; then
+                    addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--set-xmark" "--set-mark" "--and-mark" "--or-mark" "--xor-mark"
+                  else
+                    if [[ "$ACTION" == "MASQUERADE" ]]; then
+                      addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--to-ports" "--random"
+                    else
+                      if [[ "$ACTION" == "NETMAP" ]]; then
+                        addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--to"
+                      else
+                        if [[ "$ACTION" == "REDIRECT" ]]; then
+                          addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--to-ports" "--random"
+                        else
+                          if [[ "$ACTION" == "REJECT" ]]; then
+                            addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--reject-with"
+                          else
+                            if [[ "$ACTION" == "SNAT" ]]; then
+                              addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--to-source" "--random" "--persistent"
+                            else
+                              if [[ "$ACTION" == "TCPOPTSTRIP" ]]; then
+                                addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--strip-options"
+                              else
+                                if [[ "$ACTION" == "TPROXY" ]]; then
+                                  addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--on-port" "--tproxy-mark"
+                                else
+                                  if [[ "$ACTION" == "TPROXY" ]]; then
+                                    addToAction "$COMMAND" "$2" "$3" "$4" "$ACTION" "--ttl-set" "--ttl-dec" "--ttl-inc"
+                                  else
+                                    addParameters "$COMMAND" "$2" "$3" "$4"
+                                  fi
+                                fi
+                              fi
+                            fi
+                          fi
+                        fi
+                      fi
+                    fi
+                  fi
+                fi
+              fi
+            fi
+          fi
+        fi
       fi
     fi
   done
@@ -428,7 +644,7 @@ selectChain ()
           ;;
         e )
           echo "$COMMAND" >> "$CONFIG_FILE"
-          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          printf 'Added to file: \e[0;32m%s\e[m\n' "$COMMAND"
           CANCEL=true
           break
           ;;
@@ -455,7 +671,7 @@ selectChain ()
         echo ""
         if [[ "$SURE" =~ ^y$ ]]; then
           echo "$COMMAND" >> "$CONFIG_FILE"
-          printf 'Added to file: \e[0;32m%-6s\e[m\n' "$COMMAND"
+          printf 'Added to file: \e[0;32m%s\e[m\n' "$COMMAND"
           CANCEL=true
         else
           echo "Operation canceled"
@@ -897,7 +1113,7 @@ showMenu ()
       echo ""
       case $MENUSELECTED in
         i )
-          ifconfig -a
+          ifconfig -a || ip address show
           break
           ;;
         1 )

@@ -5,7 +5,7 @@
 # |                                     IPTablesManage for Linux                                       |
 # +----------------------------------------------------------------------------------------------------+
 
-VERSION="0.5"
+VERSION="0.6"
 
 CONFIG_FILE="$( realpath ~/ )/IPTablesManager-config.txt"
 

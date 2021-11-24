@@ -5,7 +5,7 @@
 # |                                     IPTablesManage for Linux                                       |
 # +----------------------------------------------------------------------------------------------------+
 
-VERSION="0.6"
+VERSION="0.7"
 
 CONFIG_FILE="$( realpath ~/ )/IPTablesManager-config.txt"
 
@@ -1191,6 +1191,7 @@ iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP   # XMAS PACKETS
 
 # iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT   # HTTP
 # iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT  # HTTPS
+# iptables -A INPUT -p tcp -m tcp --dport 5900 -j ACCEPT # VNC 1
 
 iptables -A INPUT -p tcp -m tcp --dport 587 -j ACCEPT  # SMTP
 iptables -A INPUT -p tcp -m tcp --dport 465 -j ACCEPT  # SMTPS (SSL)
@@ -1429,6 +1430,27 @@ loadFile ()
   echo "DONE"
 }
 
+clearIpconfig ()
+{
+  local SURE
+  echo "======== CLEAR IPTABLES CONFIG ========="
+  echo "You want to clear current iptables config"
+  read -p "Are you sure? [y/n] " SURE
+  if [[ ! "$SURE" =~ ^y$ ]]; then
+    echo "Operation canceled"
+    return
+  fi
+  sudo iptables -P INPUT ACCEPT
+  sudo iptables -P FORWARD ACCEPT
+  sudo iptables -P OUTPUT ACCEPT
+  sudo iptables -t nat -F
+  sudo iptables -t mangle -F
+  sudo iptables -F
+  sudo iptables -X
+  sudo iptables -L
+  echo "DONE"
+}
+
 clearFile ()
 {
   local SURE
@@ -1474,6 +1496,7 @@ showMenu ()
     echo "9) Add basic firewall to file"
     echo ""
     echo "i) Show all network interfaces"
+    echo "c) Clear current iptables config"
     echo "a) About this program"
     echo ""
     echo "0) Close program"
@@ -1527,6 +1550,10 @@ showMenu ()
           ;;
         i )
           ifconfig -a || ip address show
+          break
+          ;;
+		c )
+          clearIpconfig
           break
           ;;
         a )
